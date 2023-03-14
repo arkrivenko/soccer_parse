@@ -88,12 +88,14 @@ async def danger_attacks_set(message: types.Message, state: FSMContext):
                          f"{hbold('Удары: ')}{kicks}\n"
                          f"{hbold('Удары в створ: ')}{kicks_on_target}\n"
                          f"{hbold('Атаки: ')}{attacks}\n"
-                         f"{hbold('Опасные атаки: ')}{danger_attacks}")
+                         f"{hbold('Опасные атаки: ')}{danger_attacks}\n\n"
+                         f"Приступаю к поиску..")
 
     processed_matches = {}
     checkout_time = timedelta(hours=1)
     running[message.from_user.id] = True
     while running.get(message.from_user.id):
+        print("Starting a circle..")
         collect_games(kicks, kicks_on_target, attacks, danger_attacks)
 
         with open("result.json") as f:
@@ -117,15 +119,14 @@ async def danger_attacks_set(message: types.Message, state: FSMContext):
                     time.sleep(3)
 
                 await message.answer(card)
-        # else:
-        #     await message.answer("Ничего не найдено")
+
             if processed_matches:
                 for key, value in processed_matches.copy().items():
                     now = datetime.now()
                     if now - value >= checkout_time:
                         del processed_matches[key]
 
-        await asyncio.sleep(300)
+        await asyncio.sleep(240)
 
 
 def main():

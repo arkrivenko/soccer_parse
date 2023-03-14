@@ -30,19 +30,21 @@ zero_plays = []
 
 
 def collect_games(c_kicks, c_kicks_on_target, c_attacks, c_danger_attacks):
+    print("Page parse..")
     response = requests.get('https://soccer365.ru/index.php', params=params, headers=headers)
     src = response.text
     soup = BeautifulSoup(src, "lxml")
     all_games = soup.find_all(class_="game_block online")
+
     for game in all_games:
-        scores = game.find(class_="result").find_all(class_="gls")
-
-        if scores[0].text != "0" or scores[1].text != "0":
-            continue
-
         play_time = game.find(class_="status").text.strip()
 
         if not play_time == "Перерыв":
+            continue
+
+        scores = game.find(class_="result").find_all(class_="gls")
+
+        if scores[0].text != "0" or scores[1].text != "0":
             continue
 
         href = "https://soccer365.ru" + game.find("a")["href"]
