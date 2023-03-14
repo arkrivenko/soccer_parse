@@ -2,7 +2,6 @@ from aiogram import Bot, Dispatcher, executor, types
 from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters import Text
 from aiogram.dispatcher.filters.state import StatesGroup, State
-from aiogram.types import CallbackQuery
 from aiogram.utils.markdown import hbold, hlink
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from security import TOKEN
@@ -12,75 +11,11 @@ import json
 import time
 import asyncio
 
-
 bot = Bot(token=TOKEN, parse_mode=types.ParseMode.HTML)
 storage = MemoryStorage()
 dp = Dispatcher(bot, storage=storage)
 
-loops = {}
 running = {}
-
-
-class Loop:
-    def __init__(self, user_id, kicks, kicks_on_target, attacks, danger_attacks):
-        self.user_id = user_id
-        self._active = False
-        self._stopped = True
-        loops[self.user_id] = self
-        running[self.user_id] = False
-        self.processed_matches = {}
-        self.kicks = kicks
-        self.kicks_on_target = kicks_on_target
-        self.attacks = attacks
-        self.danger_attacks = danger_attacks
-
-    @classmethod
-    def get_loop(cls, user_id):
-        return loops.get(user_id, cls(user_id, kicks, kicks_on_target, attacks, danger_attacks))
-
-    @property
-    def is_running(self):
-        return not self._stopped
-
-    async def start(self):
-        self._active = True
-        running[self.user_id] = True
-        asyncio.create_task(self._run_loop())
-
-    async def _run_loop(self):
-        while running.get(self.user_id):
-            print(f"status : {running.get(self.user_id)}")
-            # collect_games(kicks, kicks_on_target, attacks, danger_attacks)
-
-            # with open("result.json") as f:
-            #     stats_data = json.load(f)
-            #
-            # if stats_data:
-            #     for index, game in enumerate(stats_data):
-            #         if game.get('title') in self.processed_matches:
-            #             continue
-            #
-            #         card = f"{hlink(game.get('title'), game.get('url'))}\n" \
-            #                f"{hbold('Время: ')}{game.get('time')}\n" \
-            #                f"{hbold('Удары: ')}{game.get('kicks')}\n" \
-            #                f"{hbold('Удары в створ: ')}{game.get('t_kicks')}\n" \
-            #                f"{hbold('Атаки: ')}{game.get('attacks')}\n" \
-            #                f"{hbold('Опасные атаки: ')}{game.get('danger_attacks')}\n"
-            #
-            #         self.processed_matches[game.get('title')] = datetime.now()
-            #
-            #         if index % 10 == 0:
-            #             time.sleep(3)
-            #
-            #         await message.answer(card)
-            # else:
-            #     await message.answer("Ничего не найдено")
-            await bot.send_message(self.user_id, 'loop is running')
-            await asyncio.sleep(3)
-        self._stopped = True
-
-    async def stop(self):
-        running[self.user_id] = False
 
 
 class UserState(StatesGroup):
@@ -96,29 +31,7 @@ async def start(message: types.Message):
     keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
     for button in search_buttons:
         keyboard.add(button)
-
     await message.answer("Для запуска поиска подходящих игр нажмите на кнопку ⤵️", reply_markup=keyboard)
-
-
-@dp.message_handler(Text(equals='start'))
-async def start_loop(query: CallbackQuery):
-    user = query.from_user
-    loop = Loop.get_loop(user.id)
-
-    if loop.is_running:
-        return await query.answer('Loop is already running')
-
-    await loop.start()
-    await query.answer('Started!')
-
-
-@dp.message_handler(Text(equals='stop'))
-async def stop_loop(query: CallbackQuery):
-    user = query.from_user
-    loop = Loop.get_loop(user.id)
-    await query.answer('Stopping...')
-    await loop.stop()
-    await bot.send_message(user.id, 'Loop successfully stopped.')
 
 
 @dp.message_handler(Text(equals='⚽ поиск матчей'))
@@ -129,6 +42,7 @@ async def user_configs(message: types.Message):
 
 @dp.message_handler(Text(equals="Отмена"))
 async def cmd_cancel(message: types.Message):
+    running[message.from_user.id] = False
     await message.answer("Поиск будет остановлен..")
 
 
@@ -169,6 +83,7 @@ async def danger_attacks_set(message: types.Message, state: FSMContext):
     kicks_on_target = data.get('kicks_on_target')
     attacks = data.get('attacks')
     danger_attacks = data.get('danger_attacks')
+    await state.finish()
     await message.answer(f"Указаны следующих показатели для фильтрации игр:\n"
                          f"{hbold('Удары: ')}{kicks}\n"
                          f"{hbold('Удары в створ: ')}{kicks_on_target}\n"
@@ -177,39 +92,40 @@ async def danger_attacks_set(message: types.Message, state: FSMContext):
 
     processed_matches = {}
     checkout_time = timedelta(hours=1)
+    running[message.from_user.id] = True
+    while running.get(message.from_user.id):
+        collect_games(kicks, kicks_on_target, attacks, danger_attacks)
 
-        # collect_games(kicks, kicks_on_target, attacks, danger_attacks)
-        #
-        # with open("result.json") as f:
-        #     stats_data = json.load(f)
-        #
-        # if stats_data:
-        #     for index, game in enumerate(stats_data):
-        #         if game.get('title') in processed_matches:
-        #             continue
-        #
-        #         card = f"{hlink(game.get('title'), game.get('url'))}\n" \
-        #                f"{hbold('Время: ')}{game.get('time')}\n" \
-        #                f"{hbold('Удары: ')}{game.get('kicks')}\n" \
-        #                f"{hbold('Удары в створ: ')}{game.get('t_kicks')}\n" \
-        #                f"{hbold('Атаки: ')}{game.get('attacks')}\n" \
-        #                f"{hbold('Опасные атаки: ')}{game.get('danger_attacks')}\n"
-        #
-        #         processed_matches[game.get('title')] = datetime.now()
-        #
-        #         if index % 10 == 0:
-        #             time.sleep(3)
-        #
-        #         await message.answer(card)
-        # # else:
-        # #     await message.answer("Ничего не найдено")
-        #     if processed_matches:
-        #         for key, value in processed_matches.copy().items():
-        #             now = datetime.now()
-        #             if now - value >= checkout_time:
-        #                 del processed_matches[key]
-        #
-        # await asyncio.sleep(300)
+        with open("result.json") as f:
+            stats_data = json.load(f)
+
+        if stats_data:
+            for index, game in enumerate(stats_data):
+                if game.get('title') in processed_matches:
+                    continue
+
+                card = f"{hlink(game.get('title'), game.get('url'))}\n" \
+                       f"{hbold('Время: ')}{game.get('time')}\n" \
+                       f"{hbold('Удары: ')}{game.get('kicks')}\n" \
+                       f"{hbold('Удары в створ: ')}{game.get('t_kicks')}\n" \
+                       f"{hbold('Атаки: ')}{game.get('attacks')}\n" \
+                       f"{hbold('Опасные атаки: ')}{game.get('danger_attacks')}\n"
+
+                processed_matches[game.get('title')] = datetime.now()
+
+                if index % 10 == 0:
+                    time.sleep(3)
+
+                await message.answer(card)
+        # else:
+        #     await message.answer("Ничего не найдено")
+            if processed_matches:
+                for key, value in processed_matches.copy().items():
+                    now = datetime.now()
+                    if now - value >= checkout_time:
+                        del processed_matches[key]
+
+        await asyncio.sleep(300)
 
 
 def main():
