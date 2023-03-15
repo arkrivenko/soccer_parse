@@ -92,19 +92,17 @@ async def danger_attacks_set(message: types.Message, state: FSMContext):
                          f"Приступаю к поиску..")
 
     processed_matches = {}
-    checkout_time = timedelta(hours=1)
+    checkout_time = timedelta(hours=2)
     running[message.from_user.id] = True
     while running.get(message.from_user.id):
-        print("Starting a circle..")
-        collect_games(kicks, kicks_on_target, attacks, danger_attacks)
+        print("\nStarting a circle..")
+        collect_games(kicks, kicks_on_target, attacks, danger_attacks, processed_matches)
 
         with open("result.json") as f:
             stats_data = json.load(f)
 
         if stats_data:
             for index, game in enumerate(stats_data):
-                if game.get('title') in processed_matches:
-                    continue
 
                 card = f"{hlink(game.get('title'), game.get('url'))}\n" \
                        f"{hbold('Время: ')}{game.get('time')}\n" \

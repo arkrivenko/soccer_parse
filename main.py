@@ -26,11 +26,11 @@ params = {
     'date': '',
     'vtp': '1',
 }
-zero_plays = []
 
 
-def collect_games(c_kicks, c_kicks_on_target, c_attacks, c_danger_attacks):
+def collect_games(c_kicks, c_kicks_on_target, c_attacks, c_danger_attacks, processed_matches):
     print("Page parse..")
+    zero_plays = []
     response = requests.get('https://soccer365.ru/index.php', params=params, headers=headers)
     src = response.text
     soup = BeautifulSoup(src, "lxml")
@@ -50,14 +50,16 @@ def collect_games(c_kicks, c_kicks_on_target, c_attacks, c_danger_attacks):
         href = "https://soccer365.ru" + game.find("a")["href"]
         title = game.find("a")["title"]
 
+        if title in processed_matches:
+            continue
+
         print(f"Href: {href}, title: {title}, play time: {play_time}")
         game_data = [title, play_time, href]
         zero_plays.append(game_data)
-    game_page_reader(c_kicks, c_kicks_on_target, c_attacks, c_danger_attacks)
+    game_page_reader(zero_plays, c_kicks, c_kicks_on_target, c_attacks, c_danger_attacks)
 
 
-def game_page_reader(c_kicks, c_kicks_on_target, c_attacks, c_danger_attacks):
-    global zero_plays
+def game_page_reader(zero_plays, c_kicks, c_kicks_on_target, c_attacks, c_danger_attacks):
     stats_data = []
     if zero_plays:
         for game in zero_plays:
