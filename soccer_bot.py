@@ -22,7 +22,8 @@ class UserState(StatesGroup):
     kicks = State()
     kicks_on_target = State()
     attacks = State()
-    danger_attacks = State()
+    violations = State()
+    yellow_cards = State()
 
 
 @dp.message_handler(commands='start')
@@ -38,6 +39,13 @@ async def start(message: types.Message):
 async def user_configs(message: types.Message):
     await message.answer("Введите минимальный показатель ударов")
     await UserState.kicks.set()
+
+
+# @dp.message_handler(Text(equals='Проверка'))
+# async def user_configs(message: types.Message):
+#     words_list = ["Hi", "there", "mine", "friend"]
+#     for word in words_list:
+#         await bot.send_message(message.from_user.id, word)
 
 
 @dp.message_handler(Text(equals="Отмена"))
@@ -60,7 +68,7 @@ async def kicks_on_target_set(message: types.Message, state: FSMContext):
     if not message.text.isdigit():
         return
     await state.update_data(kicks_on_target=message.text)
-    await message.answer("Введите минимальный показатель атак")
+    await message.answer("Введите минимальный показатель нарушений")
     await UserState.next()
 
 
@@ -73,30 +81,41 @@ async def attacks_set(message: types.Message, state: FSMContext):
     await UserState.next()
 
 
-@dp.message_handler(state=UserState.danger_attacks)
-async def danger_attacks_set(message: types.Message, state: FSMContext):
+@dp.message_handler(state=UserState.violations)
+async def violations_set(message: types.Message, state: FSMContext):
     if not message.text.isdigit():
         return
-    await state.update_data(danger_attacks=message.text)
+    await state.update_data(violations=message.text)
+    await message.answer("Введите показатель желтых карточек")
+    await UserState.next()
+
+
+@dp.message_handler(state=UserState.yellow_cards)
+async def yellow_cards_set(message: types.Message, state: FSMContext):
+    if not message.text.isdigit():
+        return
+    await state.update_data(yellow_cards=message.text)
     data = await state.get_data()
     kicks = data.get('kicks')
     kicks_on_target = data.get('kicks_on_target')
     attacks = data.get('attacks')
-    danger_attacks = data.get('danger_attacks')
+    violations = data.get('violations')
+    yellow_cards = data.get('yellow_cards')
     await state.finish()
     await message.answer(f"Указаны следующих показатели для фильтрации игр:\n"
                          f"{hbold('Удары: ')}{kicks}\n"
                          f"{hbold('Удары в створ: ')}{kicks_on_target}\n"
                          f"{hbold('Атаки: ')}{attacks}\n"
-                         f"{hbold('Опасные атаки: ')}{danger_attacks}\n\n"
+                         f"{hbold('Нарушения: ')}{violations}\n"
+                         f"{hbold('Желтые карточки: ')}{yellow_cards}\n\n"
                          f"Приступаю к поиску..")
 
     processed_matches = {}
     checkout_time = timedelta(hours=2)
     running[message.from_user.id] = True
     while running.get(message.from_user.id):
-        print("\nStarting a circle..")
-        collect_games(kicks, kicks_on_target, attacks, danger_attacks, processed_matches)
+        # print("\nStarting a circle..")
+        collect_games(kicks, kicks_on_target, attacks, violations, yellow_cards, processed_matches)
 
         with open("result.json") as f:
             stats_data = json.load(f)
@@ -105,11 +124,28 @@ async def danger_attacks_set(message: types.Message, state: FSMContext):
             for index, game in enumerate(stats_data):
 
                 card = f"{hlink(game.get('title'), game.get('url'))}\n" \
+                       f"{hbold('Счёт: ')}{game.get('score')}\n" \
                        f"{hbold('Время: ')}{game.get('time')}\n" \
-                       f"{hbold('Удары: ')}{game.get('kicks')}\n" \
-                       f"{hbold('Удары в створ: ')}{game.get('t_kicks')}\n" \
-                       f"{hbold('Атаки: ')}{game.get('attacks')}\n" \
-                       f"{hbold('Опасные атаки: ')}{game.get('danger_attacks')}\n"
+                       f"{hbold('Удары: ')}{game.get('kicks') or 'данные отсутствуют'}\n" \
+                       f"{hbold('Удары в створ: ')}{game.get('t_kicks') or 'данные отсутствуют'}\n" \
+                       f"{hbold('Атаки: ')}{game.get('attacks') or 'данные отсутствуют'}\n" \
+                       f"{hbold('Нарушения: ')}{game.get('violations') or 'данные отсутствуют'}\n" \
+                       f"{hbold('Желтые карточки: ')}{game.get('yellow_cards') or 'данные отсутствуют'}\n"
+
+                referees_data = game.get('refs')
+                if referees_data:
+                    final_ref_line = "Данные по арбитрам: "
+                    for referee in referees_data:
+                        # print(f"Referee: {referee}")
+                        ref_line = f"{hbold(referee)}"
+                        referee_stats = referees_data[referee]
+                        for stat in referee_stats:
+                            # print(f"stat: {stat}")
+                            ref_line = "\n".join([ref_line, stat])
+                        final_ref_line = "\n\n".join([final_ref_line, ref_line])
+
+                    # print(f"final ref line: {final_ref_line}")
+                    card = "\n\n".join([card, final_ref_line])
 
                 processed_matches[game.get('title')] = datetime.now()
 
