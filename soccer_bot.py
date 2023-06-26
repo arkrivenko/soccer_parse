@@ -117,7 +117,7 @@ async def yellow_cards_set(message: types.Message, state: FSMContext):
         # print("\nStarting a circle..")
         collect_games(kicks, kicks_on_target, attacks, violations, yellow_cards, processed_matches)
 
-        with open("result.json") as f:
+        with open("result.json", encoding="utf-8") as f:
             stats_data = json.load(f)
 
         if stats_data:
@@ -150,9 +150,15 @@ async def yellow_cards_set(message: types.Message, state: FSMContext):
                 processed_matches[game.get('title')] = datetime.now()
 
                 if index % 10 == 0:
-                    time.sleep(3)
+                    time.sleep(7)
 
-                await message.answer(card)
+                time.sleep(2)
+                try:
+                    await message.answer(card)
+                except Exception as ex:
+                    print(f"Bot answer error: {ex}")
+                    # time.sleep(15)
+                    # await message.answer(card)
 
             if processed_matches:
                 for key, value in processed_matches.copy().items():

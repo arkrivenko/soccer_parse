@@ -221,18 +221,18 @@ def game_page_reader(zero_plays, c_kicks, c_kicks_on_target, c_attacks, c_violat
                 # except Exception as ex:
                 #     print(ex)
 
-    with open("result.json", "w") as f:
+    with open("result.json", "w", encoding="utf-8") as f:
         json.dump(stats_data, f, indent=4, ensure_ascii=False)
 
 
 def referee_finder(referees_list):
-    # print(f"list: {referees_list}")
-    # print(f"len: {len(referees_list)}")
+    print(f"list: {referees_list}")
+    print(f"len: {len(referees_list)}")
     if referees_list:
         refs_final_dict = {}
         if len(referees_list) > 1:
             for referee_name in referees_list:
-                if len(referee_name) > 1:
+                if type(referee_name) == list:
                     for name in referee_name:
                         name_dict = name_checker(name)
                         if name_dict:
