@@ -117,7 +117,7 @@ async def yellow_cards_set(message: types.Message, state: FSMContext):
         # print("\nStarting a circle..")
         collect_games(kicks, kicks_on_target, attacks, violations, yellow_cards, processed_matches)
 
-        with open("result.json", encoding="utf-8") as f:
+        with open("bin_dir/result.json", encoding="utf-8") as f:
             stats_data = json.load(f)
 
         if stats_data:

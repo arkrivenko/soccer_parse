@@ -221,7 +221,7 @@ def game_page_reader(zero_plays, c_kicks, c_kicks_on_target, c_attacks, c_violat
                 # except Exception as ex:
                 #     print(ex)
 
-    with open("result.json", "w", encoding="utf-8") as f:
+    with open("bin_dir/result.json", "w", encoding="utf-8") as f:
         json.dump(stats_data, f, indent=4, ensure_ascii=False)
 
 
