@@ -300,8 +300,8 @@ def page_stats_reader(soup):
 
     if stats_columns:
         try:
-            kicks_data, kicks_on_target_data, attacks_data, violations_data, yellow_cards_data = \
-                "", "", "", "", ""
+            kicks_data, kicks_on_target_data, attacks_data, danger_attacks_data, violations_data, yellow_cards_data = \
+                "", "", "", "", "", ""
 
             for item in stats_columns:
                 all_titles = item.find_all(class_="stats_item")
@@ -317,6 +317,10 @@ def page_stats_reader(soup):
                     if title.find(class_="stats_title").text == "Атаки":
                         attacks = title.find_all(class_="stats_inf")
                         attacks_data = "-".join([attacks[0].text, attacks[1].text])
+
+                    if title.find(class_="stats_title").text == "Опасные атаки":
+                        attacks = title.find_all(class_="stats_inf")
+                        danger_attacks_data = "-".join([attacks[0].text, attacks[1].text])
                         break
 
                     if title.find(class_="stats_title").text == "Нарушения":
@@ -343,6 +347,10 @@ def page_stats_reader(soup):
             for elem in both_attacks:
                 if elem.isdigit():
                     both_attacks_sum += int(elem)
+            both_danger_attacks_sum = 0
+            for elem in danger_attacks_data:
+                if elem.isdigit():
+                    both_danger_attacks_sum += int(elem)
             both_violations = violations_data.split("-")
             both_violations_sum = 0
             for elem in both_violations:
@@ -424,11 +432,18 @@ def page_stats_reader(soup):
 
             stats_data = {
                 "score": final_scores,
-                "kicks": both_kicks_sum,
-                "t_kicks": both_kicks_on_target_sum,
-                "attacks": both_attacks_sum,
-                "violations": both_violations_sum,
-                "yellow_cards": both_yellow_cards_sum,
+                "kicks": {"sum": both_kicks_sum,
+                          "data": kicks_data},
+                "t_kicks": {"sum": both_kicks_on_target_sum,
+                            "data": kicks_on_target_data},
+                "attacks": {"sum": both_attacks_sum,
+                            "data": attacks_data},
+                "danger_attacks": {"sum": both_danger_attacks_sum,
+                                   "data": danger_attacks_data},
+                "violations": {"sum": both_violations_sum,
+                               "data": violations_data},
+                "yellow_cards": {"sum": both_yellow_cards_sum,
+                                 "data": yellow_cards_data},
                 "refs": refs_dict
             }
 

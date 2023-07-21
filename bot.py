@@ -25,6 +25,7 @@ class UserState(StatesGroup):
     kicks = State()
     kicks_on_target = State()
     attacks = State()
+    danger_attacks = State()
     violations = State()
     yellow_cards = State()
 
@@ -64,7 +65,7 @@ async def kicks_on_target_set(message: types.Message, state: FSMContext):
     if not message.text.isdigit():
         return
     await state.update_data(kicks_on_target=message.text)
-    await message.answer("Введите минимальный показатель нарушений")
+    await message.answer("Введите минимальный показатель атак")
     await UserState.next()
 
 
@@ -74,6 +75,15 @@ async def attacks_set(message: types.Message, state: FSMContext):
         return
     await state.update_data(attacks=message.text)
     await message.answer("Введите минимальный показатель опасных атак")
+    await UserState.next()
+
+
+@dp.message_handler(state=UserState.danger_attacks)
+async def attacks_set(message: types.Message, state: FSMContext):
+    if not message.text.isdigit():
+        return
+    await state.update_data(attacks=message.text)
+    await message.answer("Введите минимальный показатель нарушений")
     await UserState.next()
 
 
@@ -95,6 +105,7 @@ async def yellow_cards_set(message: types.Message, state: FSMContext):
     kicks = data.get('kicks')
     kicks_on_target = data.get('kicks_on_target')
     attacks = data.get('attacks')
+    danger_attacks = data.get('danger_attacks')
     violations = data.get('violations')
     yellow_cards = data.get('yellow_cards')
     await state.finish()
@@ -102,6 +113,7 @@ async def yellow_cards_set(message: types.Message, state: FSMContext):
                          f"{hbold('Удары: ')}{kicks}\n"
                          f"{hbold('Удары в створ: ')}{kicks_on_target}\n"
                          f"{hbold('Атаки: ')}{attacks}\n"
+                         f"{hbold('Опасные атаки: ')}{danger_attacks}\n"
                          f"{hbold('Нарушения: ')}{violations}\n"
                          f"{hbold('Желтые карточки: ')}{yellow_cards}\n\n"
                          f"Приступаю к поиску..")
@@ -128,19 +140,27 @@ async def yellow_cards_set(message: types.Message, state: FSMContext):
                     continue
 
                 elif value.get('stats').get("kicks") < int(kicks) or \
-                        value.get('stats').get("t_kicks") < int(kicks_on_target) or \
-                        value.get('stats').get("attacks") < int(attacks) or \
-                        value.get('stats').get("violations") < int(violations) or \
-                        value.get('stats').get("yellow_cards") < int(yellow_cards):
+                        value.get('stats').get("t_kicks").get("sum") < int(kicks_on_target) or \
+                        value.get('stats').get("attacks").get("sum") < int(attacks) or \
+                        value.get('stats').get("danger_attacks").get("sum") < int(danger_attacks) or \
+                        value.get('stats').get("violations").get("sum") < int(violations) or \
+                        value.get('stats').get("yellow_cards").get("sum") < int(yellow_cards):
                     continue
 
+                kicks_data = value.get('stats').get('kicks').get('data')
+                t_kicks_data = value.get('stats').get('t_kicks').get('data')
+                attacks_data = value.get('stats').get('attacks').get('data')
+                danger_attacks_data = value.get('stats').get('danger_attacks').get('data')
+                violations_data = value.get('stats').get('violations').get('data')
+                yellow_cards_data = value.get('stats').get('yellow_cards').get('data')
                 card = f"{hlink(game, value.get('game_href'))}\n" \
                        f"{hbold('Счёт: ')}{value.get('stats').get('score')}\n" \
-                       f"{hbold('Удары: ')}{value.get('stats').get('kicks') or 'данные отсутствуют'}\n" \
-                       f"{hbold('Удары в створ: ')}{value.get('stats').get('t_kicks') or 'данные отсутствуют'}\n" \
-                       f"{hbold('Атаки: ')}{value.get('stats').get('attacks') or 'данные отсутствуют'}\n" \
-                       f"{hbold('Нарушения: ')}{value.get('stats').get('violations') or 'данные отсутствуют'}\n" \
-                       f"{hbold('Желтые карточки: ')}{value.get('stats').get('yellow_cards') or 'данные отсутствуют'}\n"
+                       f"{hbold('Удары: ')}{kicks_data or 'данные отсутствуют'}\n" \
+                       f"{hbold('Удары в створ: ')}{t_kicks_data or 'данные отсутствуют'}\n" \
+                       f"{hbold('Атаки: ')}{attacks_data or 'данные отсутствуют'}\n" \
+                       f"{hbold('Опасные атаки: ')}{danger_attacks_data or 'данные отсутствуют'}\n" \
+                       f"{hbold('Нарушения: ')}{violations_data or 'данные отсутствуют'}\n" \
+                       f"{hbold('Желтые карточки: ')}{yellow_cards_data or 'данные отсутствуют'}\n"
 
                 referees_data = value.get('stats').get('refs')
                 if referees_data:
@@ -177,20 +197,28 @@ async def yellow_cards_set(message: types.Message, state: FSMContext):
                             if bet_name not in bets_dict:
                                 bets_dict.update({bet_name: {
                                     "bet_href": bet_href,
+                                    "bet_periods": [key],
                                     "bid_data": [bid_keys, bid_values],
                                 }})
 
                             else:
                                 if not bets_dict[bet_name]["bet_href"] and bet_href:
                                     bets_dict[bet_name]["bet_href"] = bet_href
+                                bets_dict[bet_name]["bet_periods"].append(key)
                                 bets_dict[bet_name]["bid_data"].append(bid_values)
+
                     if bets_dict:
                         for bet_company_title, bet_value in bets_dict.items():
                             bet_href = bet_value["bet_href"]
-                            if bet_href:
-                                bet_company_name = f"{hlink(bet_company_title, bet_href)}"
+                            bet_periods = bet_value["bet_periods"]
+                            if len(bet_periods) > 1:
+                                bet_periods_str = "; ".join(bet_periods)
                             else:
-                                bet_company_name = f"{hbold(bet_company_title)}"
+                                bet_periods_str = bet_periods[0]
+                            if bet_href:
+                                bet_company_name = f"{hlink(bet_company_title, bet_href)}\n({bet_periods_str}"
+                            else:
+                                bet_company_name = f"{hbold(bet_company_title)}\n({bet_periods_str}"
                             data_lists = bet_value["bid_data"]
                             list_to_sent = list(zip(*data_lists))
                             for line in list_to_sent:

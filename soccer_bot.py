@@ -22,6 +22,7 @@ class UserState(StatesGroup):
     kicks = State()
     kicks_on_target = State()
     attacks = State()
+    danger_attacks = State()
     violations = State()
     yellow_cards = State()
 
@@ -68,7 +69,7 @@ async def kicks_on_target_set(message: types.Message, state: FSMContext):
     if not message.text.isdigit():
         return
     await state.update_data(kicks_on_target=message.text)
-    await message.answer("Введите минимальный показатель нарушений")
+    await message.answer("Введите минимальный показатель атак")
     await UserState.next()
 
 
@@ -78,6 +79,15 @@ async def attacks_set(message: types.Message, state: FSMContext):
         return
     await state.update_data(attacks=message.text)
     await message.answer("Введите минимальный показатель опасных атак")
+    await UserState.next()
+
+
+@dp.message_handler(state=UserState.danger_attacks)
+async def attacks_set(message: types.Message, state: FSMContext):
+    if not message.text.isdigit():
+        return
+    await state.update_data(attacks=message.text)
+    await message.answer("Введите минимальный показатель нарушений")
     await UserState.next()
 
 
@@ -99,6 +109,7 @@ async def yellow_cards_set(message: types.Message, state: FSMContext):
     kicks = data.get('kicks')
     kicks_on_target = data.get('kicks_on_target')
     attacks = data.get('attacks')
+    danger_attacks = data.get('danger_attacks')
     violations = data.get('violations')
     yellow_cards = data.get('yellow_cards')
     await state.finish()
@@ -106,6 +117,7 @@ async def yellow_cards_set(message: types.Message, state: FSMContext):
                          f"{hbold('Удары: ')}{kicks}\n"
                          f"{hbold('Удары в створ: ')}{kicks_on_target}\n"
                          f"{hbold('Атаки: ')}{attacks}\n"
+                         f"{hbold('Опасные атаки: ')}{danger_attacks}\n"
                          f"{hbold('Нарушения: ')}{violations}\n"
                          f"{hbold('Желтые карточки: ')}{yellow_cards}\n\n"
                          f"Приступаю к поиску..")
