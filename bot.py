@@ -82,7 +82,7 @@ async def attacks_set(message: types.Message, state: FSMContext):
 async def attacks_set(message: types.Message, state: FSMContext):
     if not message.text.isdigit():
         return
-    await state.update_data(attacks=message.text)
+    await state.update_data(danger_attacks=message.text)
     await message.answer("Введите минимальный показатель нарушений")
     await UserState.next()
 
@@ -139,7 +139,7 @@ async def yellow_cards_set(message: types.Message, state: FSMContext):
                         del sent_games[game]
                     continue
 
-                elif value.get('stats').get("kicks") < int(kicks) or \
+                elif value.get('stats').get("kicks").get("sum") < int(kicks) or \
                         value.get('stats').get("t_kicks").get("sum") < int(kicks_on_target) or \
                         value.get('stats').get("attacks").get("sum") < int(attacks) or \
                         value.get('stats').get("danger_attacks").get("sum") < int(danger_attacks) or \
@@ -216,9 +216,9 @@ async def yellow_cards_set(message: types.Message, state: FSMContext):
                             else:
                                 bet_periods_str = bet_periods[0]
                             if bet_href:
-                                bet_company_name = f"{hlink(bet_company_title, bet_href)}\n({bet_periods_str}"
+                                bet_company_name = f"{hlink(bet_company_title, bet_href)}\n({bet_periods_str})"
                             else:
-                                bet_company_name = f"{hbold(bet_company_title)}\n({bet_periods_str}"
+                                bet_company_name = f"{hbold(bet_company_title)}\n({bet_periods_str})"
                             data_lists = bet_value["bid_data"]
                             list_to_sent = list(zip(*data_lists))
                             for line in list_to_sent:
