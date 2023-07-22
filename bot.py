@@ -22,9 +22,6 @@ running = {}
 
 
 class UserState(StatesGroup):
-    kicks = State()
-    kicks_on_target = State()
-    attacks = State()
     danger_attacks = State()
     violations = State()
     yellow_cards = State()
@@ -41,41 +38,14 @@ async def start(message: types.Message):
 
 @dp.message_handler(Text(equals='⚽ поиск матчей'))
 async def user_configs(message: types.Message):
-    await message.answer("Введите минимальный показатель ударов")
-    await UserState.kicks.set()
+    await message.answer("Введите минимальный показатель опасных атак")
+    await UserState.danger_attacks.set()
 
 
 @dp.message_handler(Text(equals="Отмена"))
 async def cmd_cancel(message: types.Message):
     running[message.from_user.id] = False
     await message.answer("Поиск будет остановлен..")
-
-
-@dp.message_handler(state=UserState.kicks)
-async def kicks_set(message: types.Message, state: FSMContext):
-    if not message.text.isdigit():
-        return
-    await state.update_data(kicks=message.text)
-    await message.answer("Введите минимальный показатель ударов в створ")
-    await UserState.next()
-
-
-@dp.message_handler(state=UserState.kicks_on_target)
-async def kicks_on_target_set(message: types.Message, state: FSMContext):
-    if not message.text.isdigit():
-        return
-    await state.update_data(kicks_on_target=message.text)
-    await message.answer("Введите минимальный показатель атак")
-    await UserState.next()
-
-
-@dp.message_handler(state=UserState.attacks)
-async def attacks_set(message: types.Message, state: FSMContext):
-    if not message.text.isdigit():
-        return
-    await state.update_data(attacks=message.text)
-    await message.answer("Введите минимальный показатель опасных атак")
-    await UserState.next()
 
 
 @dp.message_handler(state=UserState.danger_attacks)
@@ -102,17 +72,11 @@ async def yellow_cards_set(message: types.Message, state: FSMContext):
         return
     await state.update_data(yellow_cards=message.text)
     data = await state.get_data()
-    kicks = data.get('kicks')
-    kicks_on_target = data.get('kicks_on_target')
-    attacks = data.get('attacks')
     danger_attacks = data.get('danger_attacks')
     violations = data.get('violations')
     yellow_cards = data.get('yellow_cards')
     await state.finish()
     await message.answer(f"Указаны следующих показатели для фильтрации игр:\n"
-                         f"{hbold('Удары: ')}{kicks}\n"
-                         f"{hbold('Удары в створ: ')}{kicks_on_target}\n"
-                         f"{hbold('Атаки: ')}{attacks}\n"
                          f"{hbold('Опасные атаки: ')}{danger_attacks}\n"
                          f"{hbold('Нарушения: ')}{violations}\n"
                          f"{hbold('Желтые карточки: ')}{yellow_cards}\n\n"
@@ -139,116 +103,112 @@ async def yellow_cards_set(message: types.Message, state: FSMContext):
                         del sent_games[game]
                     continue
 
-                elif value.get('stats').get("kicks").get("sum") < int(kicks) or \
-                        value.get('stats').get("t_kicks").get("sum") < int(kicks_on_target) or \
-                        value.get('stats').get("attacks").get("sum") < int(attacks) or \
-                        value.get('stats').get("danger_attacks").get("sum") < int(danger_attacks) or \
-                        value.get('stats').get("violations").get("sum") < int(violations) or \
-                        value.get('stats').get("yellow_cards").get("sum") < int(yellow_cards):
-                    continue
+                if value.get('stats').get("danger_attacks").get("sum") >= int(danger_attacks) or \
+                        value.get('stats').get("violations").get("sum") >= int(violations) or \
+                        value.get('stats').get("yellow_cards").get("sum") >= int(yellow_cards):
 
-                kicks_data = value.get('stats').get('kicks').get('data')
-                t_kicks_data = value.get('stats').get('t_kicks').get('data')
-                attacks_data = value.get('stats').get('attacks').get('data')
-                danger_attacks_data = value.get('stats').get('danger_attacks').get('data')
-                violations_data = value.get('stats').get('violations').get('data')
-                yellow_cards_data = value.get('stats').get('yellow_cards').get('data')
-                card = f"{hlink(game, value.get('game_href'))}\n" \
-                       f"{hbold('Счёт: ')}{value.get('stats').get('score')}\n" \
-                       f"{hbold('Удары: ')}{kicks_data or 'данные отсутствуют'}\n" \
-                       f"{hbold('Удары в створ: ')}{t_kicks_data or 'данные отсутствуют'}\n" \
-                       f"{hbold('Атаки: ')}{attacks_data or 'данные отсутствуют'}\n" \
-                       f"{hbold('Опасные атаки: ')}{danger_attacks_data or 'данные отсутствуют'}\n" \
-                       f"{hbold('Нарушения: ')}{violations_data or 'данные отсутствуют'}\n" \
-                       f"{hbold('Желтые карточки: ')}{yellow_cards_data or 'данные отсутствуют'}\n"
+                    kicks_data = value.get('stats').get('kicks').get('data')
+                    t_kicks_data = value.get('stats').get('t_kicks').get('data')
+                    attacks_data = value.get('stats').get('attacks').get('data')
+                    danger_attacks_data = value.get('stats').get('danger_attacks').get('data')
+                    violations_data = value.get('stats').get('violations').get('data')
+                    yellow_cards_data = value.get('stats').get('yellow_cards').get('data')
+                    card = f"{hlink(game, value.get('game_href'))}\n" \
+                           f"{hbold('Счёт: ')}{value.get('stats').get('score')}\n" \
+                           f"{hbold('Удары: ')}{kicks_data or 'данные отсутствуют'}\n" \
+                           f"{hbold('Удары в створ: ')}{t_kicks_data or 'данные отсутствуют'}\n" \
+                           f"{hbold('Атаки: ')}{attacks_data or 'данные отсутствуют'}\n" \
+                           f"{hbold('Опасные атаки: ')}{danger_attacks_data or 'данные отсутствуют'}\n" \
+                           f"{hbold('Нарушения: ')}{violations_data or 'данные отсутствуют'}\n" \
+                           f"{hbold('Желтые карточки: ')}{yellow_cards_data or 'данные отсутствуют'}\n"
 
-                referees_data = value.get('stats').get('refs')
-                if referees_data:
-                    final_ref_line = "Данные по арбитрам: "
-                    for referee in referees_data:
-                        # print(f"Referee: {referee}")
-                        ref_line = f"{hbold(referee)}"
-                        referee_stats = referees_data[referee]
-                        for stat in referee_stats:
-                            # print(f"stat: {stat}")
-                            ref_line = "\n".join([ref_line, stat])
-                        final_ref_line = "\n\n".join([final_ref_line, ref_line])
+                    referees_data = value.get('stats').get('refs')
+                    if referees_data:
+                        final_ref_line = "Данные по арбитрам: "
+                        for referee in referees_data:
+                            # print(f"Referee: {referee}")
+                            ref_line = f"{hbold(referee)}"
+                            referee_stats = referees_data[referee]
+                            for stat in referee_stats:
+                                # print(f"stat: {stat}")
+                                ref_line = "\n".join([ref_line, stat])
+                            final_ref_line = "\n\n".join([final_ref_line, ref_line])
 
-                    # print(f"final ref line: {final_ref_line}")
-                    card = "\n\n".join([card, final_ref_line])
+                        # print(f"final ref line: {final_ref_line}")
+                        card = "\n\n".join([card, final_ref_line])
 
-                bets_data = value.get('bet_dicts')
-                bet_card = ""
+                    bets_data = value.get('bet_dicts')
+                    bet_card = ""
 
-                if bets_data:
+                    if bets_data:
 
-                    bets_dict = {}
-                    for key, b_value in bets_data.items():
-                        if not b_value:
-                            continue
+                        bets_dict = {}
+                        for key, b_value in bets_data.items():
+                            if not b_value:
+                                continue
 
-                        for bet_name, bet_value in b_value.items():
-                            bet_href = bet_value.get("company_href")
-                            bid_keys = list(bet_value.keys())
-                            bid_values = list(bet_value.values())
-                            if "company_href" in bid_keys:
-                                bid_keys = bid_keys[:-1]
-                                bid_values = bid_values[:-1]
-                            if bet_name not in bets_dict:
-                                bets_dict.update({bet_name: {
-                                    "bet_href": bet_href,
-                                    "bet_periods": [key],
-                                    "bid_data": [bid_keys, bid_values],
-                                }})
+                            for bet_name, bet_value in b_value.items():
+                                bet_href = bet_value.get("company_href")
+                                bid_keys = list(bet_value.keys())
+                                bid_values = list(bet_value.values())
+                                if "company_href" in bid_keys:
+                                    bid_keys = bid_keys[:-1]
+                                    bid_values = bid_values[:-1]
+                                if bet_name not in bets_dict:
+                                    bets_dict.update({bet_name: {
+                                        "bet_href": bet_href,
+                                        "bet_periods": [key],
+                                        "bid_data": [bid_keys, bid_values],
+                                    }})
 
-                            else:
-                                if not bets_dict[bet_name]["bet_href"] and bet_href:
-                                    bets_dict[bet_name]["bet_href"] = bet_href
-                                bets_dict[bet_name]["bet_periods"].append(key)
-                                bets_dict[bet_name]["bid_data"].append(bid_values)
+                                else:
+                                    if not bets_dict[bet_name]["bet_href"] and bet_href:
+                                        bets_dict[bet_name]["bet_href"] = bet_href
+                                    bets_dict[bet_name]["bet_periods"].append(key)
+                                    bets_dict[bet_name]["bid_data"].append(bid_values)
 
-                    if bets_dict:
-                        for bet_company_title, bet_value in bets_dict.items():
-                            bet_href = bet_value["bet_href"]
-                            bet_periods = bet_value["bet_periods"]
-                            if len(bet_periods) > 1:
-                                bet_periods_str = "; ".join(bet_periods)
-                            else:
-                                bet_periods_str = bet_periods[0]
-                            if bet_href:
-                                bet_company_name = f"{hlink(bet_company_title, bet_href)}\n({bet_periods_str})"
-                            else:
-                                bet_company_name = f"{hbold(bet_company_title)}\n({bet_periods_str})"
-                            data_lists = bet_value["bid_data"]
-                            list_to_sent = list(zip(*data_lists))
-                            for line in list_to_sent:
-                                str_line = ""
-                                for count, elem in enumerate(line):
-                                    if count == 0:
-                                        if "ТМ" in elem:
-                                            str_line = "".join([str_line, f"{elem:<8}"])
-                                        elif "ТБ" in elem:
-                                            str_line = "".join([str_line, f"{elem:<9}"])
+                        if bets_dict:
+                            for bet_company_title, bet_value in bets_dict.items():
+                                bet_href = bet_value["bet_href"]
+                                bet_periods = bet_value["bet_periods"]
+                                if len(bet_periods) > 1:
+                                    bet_periods_str = "; ".join(bet_periods)
+                                else:
+                                    bet_periods_str = bet_periods[0]
+                                if bet_href:
+                                    bet_company_name = f"{hlink(bet_company_title, bet_href)}\n({bet_periods_str})"
+                                else:
+                                    bet_company_name = f"{hbold(bet_company_title)}\n({bet_periods_str})"
+                                data_lists = bet_value["bid_data"]
+                                list_to_sent = list(zip(*data_lists))
+                                for line in list_to_sent:
+                                    str_line = ""
+                                    for count, elem in enumerate(line):
+                                        if count == 0:
+                                            if "ТМ" in elem:
+                                                str_line = "".join([str_line, f"{elem:<8}"])
+                                            elif "ТБ" in elem:
+                                                str_line = "".join([str_line, f"{elem:<9}"])
+                                            else:
+                                                str_line = "".join([str_line, f"{elem:<13}"])
                                         else:
-                                            str_line = "".join([str_line, f"{elem:<13}"])
-                                    else:
-                                        str_line = "".join([str_line, f"{elem:<10}"])
+                                            str_line = "".join([str_line, f"{elem:<10}"])
 
-                                bet_company_name = "\n".join([bet_company_name, str_line])
-                            bet_card = "\n\n".join([bet_card, bet_company_name])
+                                    bet_company_name = "\n".join([bet_company_name, str_line])
+                                bet_card = "\n\n".join([bet_card, bet_company_name])
 
-                time.sleep(2)
+                    time.sleep(2)
 
-                try:
-                    await message.answer(card)
+                    try:
+                        await message.answer(card)
 
-                    if bet_card:
-                        await message.answer(bet_card)
+                        if bet_card:
+                            await message.answer(bet_card)
 
-                    sent_games.update({game: datetime.now()})
+                        sent_games.update({game: datetime.now()})
 
-                except Exception as ex:
-                    print(f"Bot answer error: {ex}")
+                    except Exception as ex:
+                        print(f"Bot answer error: {ex}")
 
         await asyncio.sleep(90)
 
