@@ -40,71 +40,84 @@ async def soccer_pre_bets_dict_maker(date_time_obj):
         response = requests.get('https://soccer365.ru/index.php', params=params, headers=headers)
         src = response.text
         soup = BeautifulSoup(src, "lxml")
-        all_games = soup.find_all(class_="game_block")
-        # print(f"Len all_games: {len(all_games)}")
-        for game in all_games:
-            try:
-                date = game.find(class_="status").text.strip()
-                if not date.startswith(next_day) or "Отменен" in date or "Перенесен" in date or "Остановлен" in date:
+        all_leagues = soup.find_all(class_="live_comptt_bd")
+        with open(f"league.json", "r", encoding="utf-8") as f_read:
+            leagues_list_raw = json.load(f_read)
+        leagues_list = leagues_list_raw.get("league_list")
+        for league in all_leagues:
+            league_href_raw = league.find(class_="block_header").find("a")
+            if not league_href_raw:
+                continue
+            league_href = league_href_raw["href"]
+            if league_href not in leagues_list:
+                continue
+            all_games = soup.find_all(class_="game_block")
+            for game in all_games:
+                try:
+                    date = game.find(class_="status").text.strip()
+                    if not date.startswith(next_day) or "Отменен" in date or \
+                            "Перенесен" in date or "Остановлен" in date:
+                        continue
+                    names = game.find(class_="game_link")["title"]
+                    game_link = "https://soccer365.ru" + game.find(class_="game_link")["href"]
+                    game_page_response = requests.get(game_link, headers=headers)
+                    game_page_src = game_page_response.text
+                    game_soup = BeautifulSoup(game_page_src, "lxml")
+                    game_timer_raw = game_soup.find("div", {"id": "game_events"}).find("h2")
+                    if game_timer_raw:
+                        game_timer = game_timer_raw.text.strip()
+                        sym_index = game_timer.rindex(",") + 2
+                        true_game_date = game_timer[sym_index:]
+                    else:
+                        true_game_date = param_date
+                    odds_table = game_soup.find("div", {"id": "odds"})
+                    bet_dict = None
+                    if odds_table:
+                        bet_dict = {}
+                        odds_items = odds_table.find(class_="odds_item").find_all("div")
+                        odds_items_list = [elem.text.strip() for elem in odds_items if elem.text][1:]
+                        bet_companies = odds_table.find_all(class_="odds_logo")
+                        for company in bet_companies:
+                            company_data_elems = company.find_all("div")
+                            company_data = [elem.text.strip() for elem in company_data_elems if elem.text]
+                            company_dict = dict(zip(odds_items_list, company_data[1:]))
+                            company_href_raw = company.find(class_="odds_title").find("a")
+                            if company_href_raw:
+                                company_href = company_href_raw["href"]
+                                company_dict.update({"company_href": company_href})
+                            final_company_dict = {company_data[0]: company_dict}
+                            bet_dict.update(final_company_dict)
+                    if true_game_date.endswith(current_year):
+                        timer_exists = False
+                        game_started_soon_timer = None
+                        game_pause_first_border = None
+                        game_pause_second_border = None
+                    else:
+                        timer_exists = True
+                        game_started_soon_timer = str(datetime.strptime(true_game_date, "%d.%m.%Y %H:%M") -
+                                                      timedelta(minutes=15))
+                        game_pause_first_border = str(datetime.strptime(true_game_date, "%d.%m.%Y %H:%M") +
+                                                      timedelta(minutes=45))
+                        game_pause_second_border = str(datetime.strptime(true_game_date, "%d.%m.%Y %H:%M") +
+                                                       timedelta(minutes=70))
+                    day_dict.update({names: {
+                        "game_href": game_link,
+                        "sent": False,
+                        "game_play_time": true_game_date,
+                        "game_started_soon_timer": game_started_soon_timer,
+                        "game_pause_first_border": game_pause_first_border,
+                        "game_pause_second_border": game_pause_second_border,
+                        "timer_exists": timer_exists,
+                        "game_started_soon": False,
+                        "game_paused": False,
+                        "bet_dicts": {"За день до игры": bet_dict},
+                        "stats": None
+                    }})
+                except Exception as ex:
+                    print(f"Pre dict maker error: {ex}")
+
+                finally:
                     continue
-                names = game.find(class_="game_link")["title"]
-                game_link = "https://soccer365.ru" + game.find(class_="game_link")["href"]
-                # print(f"\n{date}:\n{names}: {game_link}")
-                game_page_response = requests.get(game_link, headers=headers)
-                game_page_src = game_page_response.text
-                game_soup = BeautifulSoup(game_page_src, "lxml")
-                game_timer_raw = game_soup.find("div", {"id": "game_events"}).find("h2")
-                if game_timer_raw:
-                    game_timer = game_timer_raw.text.strip()
-                    sym_index = game_timer.rindex(",") + 2
-                    true_game_date = game_timer[sym_index:]
-                else:
-                    true_game_date = param_date
-                odds_table = game_soup.find("div", {"id": "odds"})
-                bet_dict = None
-                if odds_table:
-                    bet_dict = {}
-                    odds_items = odds_table.find(class_="odds_item").find_all("div")
-                    odds_items_list = [elem.text.strip() for elem in odds_items if elem.text][1:]
-                    bet_companies = odds_table.find_all(class_="odds_logo")
-                    for company in bet_companies:
-                        company_data_elems = company.find_all("div")
-                        company_data = [elem.text.strip() for elem in company_data_elems if elem.text]
-                        company_dict = dict(zip(odds_items_list, company_data[1:]))
-                        company_href_raw = company.find(class_="odds_title").find("a")
-                        if company_href_raw:
-                            company_href = company_href_raw["href"]
-                            company_dict.update({"company_href": company_href})
-                        final_company_dict = {company_data[0]: company_dict}
-                        bet_dict.update(final_company_dict)
-                if true_game_date.endswith(current_year):
-                    timer_exists = False
-                    game_started_soon_timer = None
-                    game_pause_first_border = None
-                    game_pause_second_border = None
-                else:
-                    timer_exists = True
-                    game_started_soon_timer = str(datetime.strptime(true_game_date, "%d.%m.%Y %H:%M") -
-                                                  timedelta(minutes=15))
-                    game_pause_first_border = str(datetime.strptime(true_game_date, "%d.%m.%Y %H:%M") +
-                                                  timedelta(minutes=45))
-                    game_pause_second_border = str(datetime.strptime(true_game_date, "%d.%m.%Y %H:%M") +
-                                                   timedelta(minutes=70))
-                day_dict.update({names: {
-                    "game_href": game_link,
-                    "sent": False,
-                    "game_play_time": true_game_date,
-                    "game_started_soon_timer": game_started_soon_timer,
-                    "game_pause_first_border": game_pause_first_border,
-                    "game_pause_second_border": game_pause_second_border,
-                    "timer_exists": timer_exists,
-                    "game_started_soon": False,
-                    "game_paused": False,
-                    "bet_dicts": {"За день до игры": bet_dict},
-                    "stats": None
-                }})
-            except Exception as ex:
-                print(f"Pre dict maker error: {ex}")
 
         with open(f"bets/{next_day}_bets.json", "w", encoding="utf-8") as f:
             json.dump(day_dict, f, indent=4, ensure_ascii=False)
@@ -127,56 +140,28 @@ async def soccer_current_bets_dict_maker():
         games_dict = json.load(f_read)
 
     while True:
-        games_to_sent_dict = {}
         current_day_raw = datetime.now()
 
-        print(f"\n{current_day_raw}: сканирование сегодняшних игр..")
-        for game_name, value in games_dict.items():
-            game_href = value["game_href"]
+        if games_dict:
+            games_to_sent_dict = {}
 
-            if value["timer_exists"]:
-                game_play_time = datetime.strptime(value.get("game_play_time"), "%d.%m.%Y %H:%M")
-                game_started_soon_timer = datetime.strptime(value.get("game_started_soon_timer"), "%Y-%m-%d %H:%M:%S")
-                game_pause_first_border = datetime.strptime(value.get("game_pause_first_border"), "%Y-%m-%d %H:%M:%S")
-                game_pause_second_border = datetime.strptime(value.get("game_pause_second_border"), "%Y-%m-%d %H:%M:%S")
+            print(f"\n{current_day_raw}: сканирование сегодняшних игр..")
+            for game_name, value in games_dict.items():
+                game_href = value["game_href"]
 
-            if value["timer_exists"] and not value["game_paused"] and not value["game_started_soon"] and \
-                    game_started_soon_timer <= current_day_raw <= game_play_time:
+                if value["timer_exists"]:
+                    game_play_time = datetime.strptime(value.get("game_play_time"), "%d.%m.%Y %H:%M")
+                    game_started_soon_timer = datetime.strptime(value.get("game_started_soon_timer"), "%Y-%m-%d %H:%M:%S")
+                    game_pause_first_border = datetime.strptime(value.get("game_pause_first_border"), "%Y-%m-%d %H:%M:%S")
+                    game_pause_second_border = datetime.strptime(value.get("game_pause_second_border"), "%Y-%m-%d %H:%M:%S")
 
-                value["game_started_soon"] = True
-                game_response = requests.get(game_href, headers=headers)
-                game_src = game_response.text
-                game_soup = BeautifulSoup(game_src, "lxml")
-                odds_table = game_soup.find("div", {"id": "odds"})
+                if value["timer_exists"] and not value["game_paused"] and not value["game_started_soon"] and \
+                        game_started_soon_timer <= current_day_raw <= game_play_time:
 
-                if odds_table:
-                    bet_dict = {}
-                    odds_items = odds_table.find(class_="odds_item").find_all("div")
-                    odds_items_list = [elem.text.strip() for elem in odds_items if elem.text][1:]
-                    bet_companies = odds_table.find_all(class_="odds_logo")
-
-                    for company in bet_companies:
-                        company_data_elems = company.find_all("div")
-                        company_data = [elem.text.strip() for elem in company_data_elems if elem.text]
-                        company_dict = dict(zip(odds_items_list, company_data[1:]))
-                        company_href_raw = company.find(class_="odds_title").find("a")
-
-                        if company_href_raw:
-                            company_href = company_href_raw["href"]
-                            company_dict.update({"company_href": company_href})
-                        final_company_dict = {company_data[0]: company_dict}
-                        bet_dict.update(final_company_dict)
-                    value["bet_dicts"].update({"За 15 минут до игры": bet_dict})
-
-            elif not value["game_paused"] and not value["game_started_soon"] and not value["timer_exists"]:
-                game_response = requests.get(game_href, headers=headers)
-                game_src = game_response.text
-                game_soup = BeautifulSoup(game_src, "lxml")
-
-                game_live_status = game_soup.find(class_="live_game_status")
-
-                if game_live_status:
                     value["game_started_soon"] = True
+                    game_response = requests.get(game_href, headers=headers)
+                    game_src = game_response.text
+                    game_soup = BeautifulSoup(game_src, "lxml")
                     odds_table = game_soup.find("div", {"id": "odds"})
 
                     if odds_table:
@@ -198,17 +183,15 @@ async def soccer_current_bets_dict_maker():
                             bet_dict.update(final_company_dict)
                         value["bet_dicts"].update({"За 15 минут до игры": bet_dict})
 
-            elif value["timer_exists"] and not value["game_paused"] and value["game_started_soon"] and \
-                    game_pause_first_border <= current_day_raw <= game_pause_second_border:
+                elif not value["game_paused"] and not value["game_started_soon"] and not value["timer_exists"]:
+                    game_response = requests.get(game_href, headers=headers)
+                    game_src = game_response.text
+                    game_soup = BeautifulSoup(game_src, "lxml")
 
-                game_response = requests.get(game_href, headers=headers)
-                game_src = game_response.text
-                game_soup = BeautifulSoup(game_src, "lxml")
+                    game_live_status = game_soup.find(class_="live_game_status")
 
-                game_pause_flag = game_soup.find(class_="live_game_status")
-                if game_pause_flag:
-                    if game_pause_flag.text.strip() == "Перерыв":
-                        value["game_paused"] = True
+                    if game_live_status:
+                        value["game_started_soon"] = True
                         odds_table = game_soup.find("div", {"id": "odds"})
 
                         if odds_table:
@@ -228,55 +211,87 @@ async def soccer_current_bets_dict_maker():
                                     company_dict.update({"company_href": company_href})
                                 final_company_dict = {company_data[0]: company_dict}
                                 bet_dict.update(final_company_dict)
-                            value["bet_dicts"].update({"Во время перерыва": bet_dict})
+                            value["bet_dicts"].update({"За 15 минут до игры": bet_dict})
 
-                        game_stats = page_stats_reader(game_soup)
-                        value["stats"] = game_stats
+                elif value["timer_exists"] and not value["game_paused"] and value["game_started_soon"] and \
+                        game_pause_first_border <= current_day_raw <= game_pause_second_border:
 
-            elif not value["game_paused"] and value["game_started_soon"] and not value["timer_exists"]:
-                game_response = requests.get(game_href, headers=headers)
-                game_src = game_response.text
-                game_soup = BeautifulSoup(game_src, "lxml")
+                    game_response = requests.get(game_href, headers=headers)
+                    game_src = game_response.text
+                    game_soup = BeautifulSoup(game_src, "lxml")
 
-                game_pause_flag = game_soup.find(class_="live_game_status")
-                if game_pause_flag:
-                    if game_pause_flag.text.strip() == "Перерыв":
-                        value["game_paused"] = True
-                        odds_table = game_soup.find("div", {"id": "odds"})
+                    game_pause_flag = game_soup.find(class_="live_game_status")
+                    if game_pause_flag:
+                        if game_pause_flag.text.strip() == "Перерыв":
+                            value["game_paused"] = True
+                            odds_table = game_soup.find("div", {"id": "odds"})
 
-                        if odds_table:
-                            bet_dict = {}
-                            odds_items = odds_table.find(class_="odds_item").find_all("div")
-                            odds_items_list = [elem.text.strip() for elem in odds_items if elem.text][1:]
-                            bet_companies = odds_table.find_all(class_="odds_logo")
+                            if odds_table:
+                                bet_dict = {}
+                                odds_items = odds_table.find(class_="odds_item").find_all("div")
+                                odds_items_list = [elem.text.strip() for elem in odds_items if elem.text][1:]
+                                bet_companies = odds_table.find_all(class_="odds_logo")
 
-                            for company in bet_companies:
-                                company_data_elems = company.find_all("div")
-                                company_data = [elem.text.strip() for elem in company_data_elems if elem.text]
-                                company_dict = dict(zip(odds_items_list, company_data[1:]))
-                                company_href_raw = company.find(class_="odds_title").find("a")
+                                for company in bet_companies:
+                                    company_data_elems = company.find_all("div")
+                                    company_data = [elem.text.strip() for elem in company_data_elems if elem.text]
+                                    company_dict = dict(zip(odds_items_list, company_data[1:]))
+                                    company_href_raw = company.find(class_="odds_title").find("a")
 
-                                if company_href_raw:
-                                    company_href = company_href_raw["href"]
-                                    company_dict.update({"company_href": company_href})
-                                final_company_dict = {company_data[0]: company_dict}
-                                bet_dict.update(final_company_dict)
-                            value["bet_dicts"].update({"Во время перерыва": bet_dict})
+                                    if company_href_raw:
+                                        company_href = company_href_raw["href"]
+                                        company_dict.update({"company_href": company_href})
+                                    final_company_dict = {company_data[0]: company_dict}
+                                    bet_dict.update(final_company_dict)
+                                value["bet_dicts"].update({"Во время перерыва": bet_dict})
 
-                        game_stats = page_stats_reader(game_soup)
-                        value["stats"] = game_stats
+                            game_stats = page_stats_reader(game_soup)
+                            value["stats"] = game_stats
 
-            if value["game_paused"] and not value["sent"]:
+                elif not value["game_paused"] and value["game_started_soon"] and not value["timer_exists"]:
+                    game_response = requests.get(game_href, headers=headers)
+                    game_src = game_response.text
+                    game_soup = BeautifulSoup(game_src, "lxml")
 
-                games_to_sent_dict.update({game_name: value})
-                # print(f"\n\nNew game to sent: {game_name}")
-                value["sent"] = True
+                    game_pause_flag = game_soup.find(class_="live_game_status")
+                    if game_pause_flag:
+                        if game_pause_flag.text.strip() == "Перерыв":
+                            value["game_paused"] = True
+                            odds_table = game_soup.find("div", {"id": "odds"})
 
-        with open(f"bets/{current_day}_bets.json", "w", encoding="utf-8") as f_bets:
-            json.dump(games_dict, f_bets, indent=4, ensure_ascii=False)
+                            if odds_table:
+                                bet_dict = {}
+                                odds_items = odds_table.find(class_="odds_item").find_all("div")
+                                odds_items_list = [elem.text.strip() for elem in odds_items if elem.text][1:]
+                                bet_companies = odds_table.find_all(class_="odds_logo")
 
-        with open(f"games_to_sent.json", "w", encoding="utf-8") as f_games:
-            json.dump(games_to_sent_dict, f_games, indent=4, ensure_ascii=False)
+                                for company in bet_companies:
+                                    company_data_elems = company.find_all("div")
+                                    company_data = [elem.text.strip() for elem in company_data_elems if elem.text]
+                                    company_dict = dict(zip(odds_items_list, company_data[1:]))
+                                    company_href_raw = company.find(class_="odds_title").find("a")
+
+                                    if company_href_raw:
+                                        company_href = company_href_raw["href"]
+                                        company_dict.update({"company_href": company_href})
+                                    final_company_dict = {company_data[0]: company_dict}
+                                    bet_dict.update(final_company_dict)
+                                value["bet_dicts"].update({"Во время перерыва": bet_dict})
+
+                            game_stats = page_stats_reader(game_soup)
+                            value["stats"] = game_stats
+
+                if value["game_paused"] and not value["sent"]:
+
+                    games_to_sent_dict.update({game_name: value})
+                    # print(f"\n\nNew game to sent: {game_name}")
+                    value["sent"] = True
+
+            with open(f"bets/{current_day}_bets.json", "w", encoding="utf-8") as f_bets:
+                json.dump(games_dict, f_bets, indent=4, ensure_ascii=False)
+
+            with open(f"games_to_sent.json", "w", encoding="utf-8") as f_games:
+                json.dump(games_to_sent_dict, f_games, indent=4, ensure_ascii=False)
 
         if current_day_raw >= next_day:
 
