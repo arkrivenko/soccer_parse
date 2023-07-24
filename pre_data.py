@@ -8,7 +8,6 @@ headers = {
     'authority': 'soccer365.ru',
     'accept': '*/*',
     'accept-language': 'ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7',
-    # 'cookie': 'PHPSESSID=qcpm552klgu0ihukate1lo8l26; device_type=1; _ga=GA1.1.1611811921.1687496999; _ga_YQ2WWHERLS=GS1.1.1689663126.38.1.1689663166.0.0.0',
     'referer': 'https://soccer365.ru/online/&date=2023-07-19',
     'sec-ch-ua': '"Not.A/Brand";v="8", "Chromium";v="114", "Google Chrome";v="114"',
     'sec-ch-ua-mobile': '?0',
@@ -16,7 +15,8 @@ headers = {
     'sec-fetch-dest': 'empty',
     'sec-fetch-mode': 'cors',
     'sec-fetch-site': 'same-origin',
-    'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36',
+    'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
+                  'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36',
     'x-requested-with': 'XMLHttpRequest',
 }
 
@@ -126,7 +126,8 @@ async def soccer_pre_bets_dict_maker(date_time_obj):
         date_time_at_end = datetime.now()
         seconds_to_wait = (date_time_obj - date_time_at_end).total_seconds()
 
-        print(f"{date_time_at_end.strftime('%Y-%m-%d %H:%M:%S')}: цикл окончен, перехожу ко сну..")
+        print(f"{date_time_at_end.strftime('%Y-%m-%d %H:%M:%S')}: цикл окончен, перехожу ко сну на "
+              f"{seconds_to_wait} секунд. Следующая проверка: {str(date_time_obj)}")
         await asyncio.sleep(seconds_to_wait)
 
 
@@ -151,9 +152,12 @@ async def soccer_current_bets_dict_maker():
 
                 if value["timer_exists"]:
                     game_play_time = datetime.strptime(value.get("game_play_time"), "%d.%m.%Y %H:%M")
-                    game_started_soon_timer = datetime.strptime(value.get("game_started_soon_timer"), "%Y-%m-%d %H:%M:%S")
-                    game_pause_first_border = datetime.strptime(value.get("game_pause_first_border"), "%Y-%m-%d %H:%M:%S")
-                    game_pause_second_border = datetime.strptime(value.get("game_pause_second_border"), "%Y-%m-%d %H:%M:%S")
+                    game_started_soon_timer = datetime.strptime(value.get("game_started_soon_timer"),
+                                                                "%Y-%m-%d %H:%M:%S")
+                    game_pause_first_border = datetime.strptime(value.get("game_pause_first_border"),
+                                                                "%Y-%m-%d %H:%M:%S")
+                    game_pause_second_border = datetime.strptime(value.get("game_pause_second_border"),
+                                                                 "%Y-%m-%d %H:%M:%S")
 
                 if value["timer_exists"] and not value["game_paused"] and not value["game_started_soon"] and \
                         game_started_soon_timer <= current_day_raw <= game_play_time:
@@ -284,7 +288,6 @@ async def soccer_current_bets_dict_maker():
                 if value["game_paused"] and not value["sent"]:
 
                     games_to_sent_dict.update({game_name: value})
-                    # print(f"\n\nNew game to sent: {game_name}")
                     value["sent"] = True
 
             with open(f"bets/{current_day}_bets.json", "w", encoding="utf-8") as f_bets:
@@ -419,10 +422,8 @@ def page_stats_reader(soup):
                                 referees_dict.update(referee_dict)
 
                 if referees_dict:
-                    # print(f"dict: {referees_dict}")
                     referees_list = []
                     for key, value in referees_dict.items():
-                        # print(f"key: {key}, value: {value}")
                         if value:
                             r_response = requests.get(value, headers=headers)
                             r_src = r_response.text
@@ -436,11 +437,8 @@ def page_stats_reader(soup):
                                 referees_list.append(profile_title)
                         else:
                             profile_title = key
-                            # print(f"name: {profile_title}")
                             referees_list.append(profile_title)
-                    # print(f"referees list: {referees_list}")
                     refs_dict = referee_finder(referees_list)
-                    # print(f"refs dict: {refs_dict}")
 
             scores = soup.find_all(class_="live_game_goal")
             final_scores = "-".join([scores[0].text.strip(), scores[1].text.strip()])

@@ -126,15 +126,12 @@ async def yellow_cards_set(message: types.Message, state: FSMContext):
                     if referees_data:
                         final_ref_line = "Данные по арбитрам: "
                         for referee in referees_data:
-                            # print(f"Referee: {referee}")
                             ref_line = f"{hbold(referee)}"
                             referee_stats = referees_data[referee]
                             for stat in referee_stats:
-                                # print(f"stat: {stat}")
                                 ref_line = "\n".join([ref_line, stat])
                             final_ref_line = "\n\n".join([final_ref_line, ref_line])
 
-                        # print(f"final ref line: {final_ref_line}")
                         card = "\n\n".join([card, final_ref_line])
 
                     bets_data = value.get('bet_dicts')
