@@ -211,10 +211,6 @@ async def yellow_cards_set(message: types.Message, state: FSMContext):
 
 
 async def on_startup(dp: Dispatcher):
-    next_day = datetime.now().date() + timedelta(days=1)
-    edited_next_day = str(next_day) + " 16:00:00"
-    date_time_start_obj = datetime.strptime(edited_next_day, "%Y-%m-%d %H:%M:%S")
-    asyncio.create_task(soccer_pre_bets_dict_maker(date_time_start_obj))
     asyncio.create_task(soccer_current_bets_dict_maker())
 
 
