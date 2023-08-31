@@ -297,14 +297,17 @@ async def soccer_current_bets_dict_maker():
         if current_day_raw >= next_day_raw:
             datetime_now = datetime.now()
 
+            current_day = current_day_raw.strftime("%d.%m")
+
+            if not os.path.exists(f"bets/{current_day}_bets.json"):
+                soccer_pre_bets_dict_maker(current_day_raw, next_day, next_date)
+
             flag_time = datetime.strptime(datetime_now.strftime("%Y-%m-%d"), "%Y-%m-%d") + timedelta(hours=16)
             next_day_raw = datetime.strptime(datetime_now.strftime("%Y-%m-%d"), "%Y-%m-%d") + timedelta(days=1)
             next_date = str(datetime_now.date() + timedelta(days=1))
             next_day = (datetime_now + timedelta(days=1)).strftime("%d.%m")
 
             print(f"\nNew day: {current_day_raw}\n")
-
-            current_day = current_day_raw.strftime("%d.%m")
 
             with open(f"bets/{current_day}_bets.json", "r", encoding="utf-8") as f_read:
                 games_dict = json.load(f_read)
